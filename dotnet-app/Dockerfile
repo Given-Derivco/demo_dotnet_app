@@ -6,7 +6,7 @@ RUN dotnet restore WebApp.csproj
 COPY . .
 RUN dotnet publish WebApp.csproj -c Release -o /app/publish --no-restore
 
-# Stage 2 – download OpenTelemetry .NET instrumentation
+# Stage 2 – download OpenTelemetry .NET instrumentation v1.7.0
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS otel-download
 WORKDIR /otel
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
@@ -19,11 +19,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 # Stage 3 – runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 
-# Copy app
 WORKDIR /app
+
+# Copy published application
 COPY --from=build /app/publish .
 
-# Copy OpenTelemetry instrumentation
+# Copy OpenTelemetry .NET auto-instrumentation
 COPY --from=otel-download /otel/otel-dotnet-auto /otel-dotnet-auto
 
 # OpenTelemetry .NET auto-instrumentation environment variables
@@ -34,19 +35,23 @@ ENV CORECLR_PROFILER_PATH=/otel-dotnet-auto/linux-x64/OpenTelemetry.AutoInstrume
 ENV DOTNET_STARTUP_HOOKS=/otel-dotnet-auto/net/OpenTelemetry.AutoInstrumentation.StartupHook.dll
 ENV DOTNET_ADDITIONAL_DEPS=/otel-dotnet-auto/AdditionalDeps
 ENV DOTNET_SHARED_STORE=/otel-dotnet-auto/store
+
+# Application environment
 ENV OTEL_SERVICE_NAME=dotnet-app
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
 
 # OTEL_EXPORTER_OTLP_ENDPOINT is intentionally NOT set here;
-# it is injected at runtime by the deployer.
+# it must be injected at runtime by the deployer.
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/healthz || exit 1
-
+# Create and switch to non-root user
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 USER appuser
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
+    CMD dotnet-healthcheck http://localhost:8080/healthz 2>/dev/null || \
+        wget -qO- http://localhost:8080/healthz || exit 1
 
 ENTRYPOINT ["dotnet", "WebApp.dll"]
