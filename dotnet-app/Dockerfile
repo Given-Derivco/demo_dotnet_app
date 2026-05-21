@@ -51,7 +51,6 @@ RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 USER appuser
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
-    CMD dotnet-healthcheck http://localhost:8080/healthz 2>/dev/null || \
-        wget -qO- http://localhost:8080/healthz || exit 1
+    CMD wget -qO- http://localhost:8080/healthz || exit 1
 
 ENTRYPOINT ["dotnet", "WebApp.dll"]
