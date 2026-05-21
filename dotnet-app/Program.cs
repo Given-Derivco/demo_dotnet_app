@@ -1,5 +1,12 @@
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
+
+app.UseSwagger();
+app.UseSwaggerUI();
 
 var version = Environment.GetEnvironmentVariable("APP_VERSION") ?? "1.0.0";
 var hostname = Environment.GetEnvironmentVariable("HOSTNAME") ?? System.Net.Dns.GetHostName();
@@ -12,7 +19,7 @@ app.MapGet("/", () =>
 {
     Interlocked.Increment(ref requests);
     return Results.Content(
-        $"<h1>ASP.NET Core on Launchpad</h1><p>version <b>{version}</b> · instance <code>{instance}</code> · requests {requests}</p>",
+        $"<h1>ASP.NET Core on Launchpad</h1><p>version <b>{version}</b> · instance <code>{instance}</code> · requests {requests}</p><p><a href=\"/swagger\">OpenAPI / Swagger</a></p>",
         "text/html");
 });
 
